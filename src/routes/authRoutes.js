@@ -6,19 +6,19 @@ const {
   getMe,
 } = require("../controllers/authController");
 
-const authMiddleware = require(
-  "../middleware/authMiddleware"
-);
+const authMiddleware = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
-// REGISTER
+// 🔹 PUBLIC ROUTES
+// Register user
 router.post("/register", registerUser);
 
-// LOGIN
+// Login user
 router.post("/login", loginUser);
 
-// PROTECTED
+// 🔹 PROTECTED ROUTES
+// Get current user (butuh token)
 router.get("/me", authMiddleware, getMe);
 
 module.exports = router;
