@@ -124,7 +124,7 @@ const loginUser = async (req, res) => {
 const getMe = async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT id, full_name, email, profile_image, total_points FROM users WHERE id = $1",
+      "SELECT id, full_name, email, role, profile_image, total_points FROM users WHERE id = $1",
       [req.user.id]
     );
 

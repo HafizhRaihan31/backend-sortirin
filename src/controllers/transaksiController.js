@@ -54,3 +54,89 @@ exports.tambahTransaksi = async (req, res) => {
     });
   }
 };
+
+// ADMIN - GET ALL TRASH LOGS
+exports.getAllTrashLogs =
+  async (req, res) => {
+
+    try {
+
+      // ADMIN ONLY
+      if (
+        req.user.role !== "admin"
+      ) {
+
+        return res.status(403).json({
+
+          success: false,
+
+          message:
+            "Akses ditolak",
+
+        });
+      }
+
+      const result =
+  await db.query(
+    `
+    SELECT
+      ts.id,
+
+      users.full_name
+      AS user_name,
+
+      users.email,
+
+      ks.category_name
+      AS waste_category,
+
+      ts.berat,
+
+      ts.poin_didapat,
+
+      ts.status,
+
+      ts.created_at
+
+    FROM transaksi_sampah ts
+
+    JOIN users
+    ON ts.user_id = users.id
+
+    JOIN kategori_sampah ks
+    ON ts.kategori_id = ks.id
+
+    ORDER BY
+    ts.created_at DESC
+    `
+  );
+
+      res.status(200).json({
+
+        success: true,
+
+        data:
+          result.rows,
+
+      });
+
+    } catch (err) {
+
+      console.error(
+        "GET ALL TRASH LOGS ERROR:",
+        err
+      );
+
+      res.status(500).json({
+
+        success: false,
+
+        message:
+          "Server error",
+
+        error:
+          err.message,
+
+      });
+    }
+};

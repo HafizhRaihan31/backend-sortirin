@@ -4,7 +4,7 @@ const authMiddleware = (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
-    // 🔹 cek header ada atau tidak
+    //cek header ada atau tidak
     if (!authHeader) {
       return res.status(401).json({
         success: false,
@@ -12,7 +12,7 @@ const authMiddleware = (req, res, next) => {
       });
     }
 
-    // 🔹 cek format Bearer
+    //cek format Bearer
     if (!authHeader.startsWith("Bearer ")) {
       return res.status(401).json({
         success: false,
@@ -30,8 +30,6 @@ const authMiddleware = (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    // 🔥 ini penting
     req.user = decoded;
 
     next();

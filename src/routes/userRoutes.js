@@ -1,5 +1,11 @@
 const express = require("express");
 
+const authMiddleware =
+  require("../middleware/authMiddleware");
+
+const adminMiddleware =
+  require("../middleware/adminMiddleware");
+
 const {
   getAllUsers,
   getUserById,
@@ -7,30 +13,76 @@ const {
   updateUser,
   deleteUser,
   getPoin,
-  getDashboard, 
+  getDashboard,
+  updateProfile,
+  getHistory,
 } = require("../controllers/userController");
 
 const router = express.Router();
 
-// 🔹 GET semua user
-router.get("/", getAllUsers);
+// DASHBOARD USER LOGIN
+router.get(
+  "/dashboard",
+  authMiddleware,
+  getDashboard
+);
 
-// 🔹 GET poin user (harus di atas)
-router.get("/:id/poin", getPoin);
+// HISTORY USER LOGIN
+router.get(
+  "/history",
+  authMiddleware,
+  getHistory
+);
 
-// 🔹 GET dashboard user (harus di atas juga)
-router.get("/:id/dashboard", getDashboard);
+// UPDATE PROFILE USER LOGIN
+router.put(
+  "/profile",
+  authMiddleware,
+  updateProfile
+);
 
-// 🔹 GET user by id (paling bawah dari dynamic route)
-router.get("/:id", getUserById);
+// GET ALL USERS
+router.get(
+  "/",
+  authMiddleware,
+  adminMiddleware,
+  getAllUsers
+);
 
-// 🔹 CREATE user
-router.post("/", createUser);
+// GET USER POINTS
+router.get(
+  "/:id/poin",
+  authMiddleware,
+  getPoin
+);
 
-// 🔹 UPDATE user
-router.put("/:id", updateUser);
+// GET USER BY ID
+router.get(
+  "/:id",
+  authMiddleware,
+  getUserById
+);
 
-// 🔹 DELETE user
-router.delete("/:id", deleteUser);
+// CREATE USER
+router.post(
+  "/",
+  createUser
+);
+
+// UPDATE USER
+router.put(
+  "/:id",
+  authMiddleware,
+  adminMiddleware,
+  updateUser
+);
+
+// DELETE USER
+router.delete(
+  "/:id",
+  authMiddleware,
+  adminMiddleware,
+  deleteUser
+);
 
 module.exports = router;
