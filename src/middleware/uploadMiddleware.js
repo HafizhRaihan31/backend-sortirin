@@ -1,77 +1,60 @@
 const multer = require("multer");
 const path = require("path");
+const fs = require("fs");
 
-// STORAGE
+// ── HELPER: Buat folder jika belum ada ───────────────────
+const ensureDir = (dirPath) => {
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+  }
+};
+
+// ── STORAGE ENGINE ────────────────────────────────────────
 const storage = multer.diskStorage({
-
   destination: (req, file, cb) => {
+    // Tentukan folder berdasarkan route
+    let folder = "uploads/misc";
 
-    let folder = "uploads/";
-
-    if (file.fieldname === "reward_image") {
-      folder = "uploads/rewards/";
+    if (req.baseUrl.includes("rewards")) {
+      folder = "uploads/rewards";
+    } else if (req.baseUrl.includes("klasifikasi")) {
+      folder = "uploads/klasifikasi";
+    } else if (req.baseUrl.includes("users")) {
+      folder = "uploads/profiles";
     }
 
-    if (file.fieldname === "profile_image") {
-      folder = "uploads/profiles/";
-    }
-
-    if (file.fieldname === "scan_image") {
-      folder = "uploads/scans/";
-    }
-
+    ensureDir(folder);
     cb(null, folder);
   },
 
-
   filename: (req, file, cb) => {
-    const uniqueName =
-      Date.now() +
-      "-" +
-      Math.round(Math.random() * 1e9);
-    cb(
-      null,
-      uniqueName +
-      path.extname(file.originalname)
-    );
+    const timestamp = Date.now();
+    const random = Math.round(Math.random() * 1e9);
+    const ext = path.extname(file.originalname);
+    cb(null, `${timestamp}-${random}${ext}`);
   },
 });
 
-// FILE FILTER
+// ── FILE FILTER: Hanya gambar ─────────────────────────────
 const fileFilter = (req, file, cb) => {
+  const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
-  const allowedTypes = [
-    "image/jpeg",
-    "image/jpg",
-    "image/png",
-    "image/webp",
-  ];
-
-  if (
-    allowedTypes.includes(file.mimetype)
-  ) {
+  if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
-
   } else {
-
     cb(
-      new Error(
-        "Format file tidak didukung"
-      ),
+      new Error("Format file tidak didukung. Gunakan JPG, PNG, atau WEBP"),
       false
     );
   }
 };
 
-// MULTER CONFIG
+// ── EXPORT MULTER INSTANCE ────────────────────────────────
 const upload = multer({
-
   storage,
-
   fileFilter,
-
   limits: {
-    fileSize: 5 * 1024 * 1024,
+    fileSize: 5 * 1024 * 1024, // Maksimal 5MB
   },
 });
 

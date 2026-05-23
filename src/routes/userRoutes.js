@@ -1,10 +1,9 @@
 const express = require("express");
+const router = express.Router();
 
-const authMiddleware =
-  require("../middleware/authMiddleware");
-
-const adminMiddleware =
-  require("../middleware/adminMiddleware");
+const authMiddleware = require("../middleware/authMiddleware");
+const adminMiddleware = require("../middleware/adminMiddleware");
+const upload = require("../middleware/uploadMiddleware");
 
 const {
   getAllUsers,
@@ -18,71 +17,26 @@ const {
   getHistory,
 } = require("../controllers/userController");
 
-const router = express.Router();
-
-// DASHBOARD USER LOGIN
-router.get(
-  "/dashboard",
-  authMiddleware,
-  getDashboard
-);
-
-// HISTORY USER LOGIN
-router.get(
-  "/history",
-  authMiddleware,
-  getHistory
-);
-
-// UPDATE PROFILE USER LOGIN
+// ── USER YANG SEDANG LOGIN ────────────────────────────────
+router.get("/dashboard", authMiddleware, getDashboard);
+router.get("/history", authMiddleware, getHistory);
 router.put(
   "/profile",
   authMiddleware,
+  upload.single("profile_image"), // ← support upload foto
   updateProfile
 );
 
-// GET ALL USERS
-router.get(
-  "/",
-  authMiddleware,
-  adminMiddleware,
-  getAllUsers
-);
+// ── ADMIN ─────────────────────────────────────────────────
+router.get("/", authMiddleware, adminMiddleware, getAllUsers);
 
-// GET USER POINTS
-router.get(
-  "/:id/poin",
-  authMiddleware,
-  getPoin
-);
+// ── USER BY ID ────────────────────────────────────────────
+router.get("/:id/poin", authMiddleware, getPoin);
+router.get("/:id", authMiddleware, getUserById);
 
-// GET USER BY ID
-router.get(
-  "/:id",
-  authMiddleware,
-  getUserById
-);
-
-// CREATE USER
-router.post(
-  "/",
-  createUser
-);
-
-// UPDATE USER
-router.put(
-  "/:id",
-  authMiddleware,
-  adminMiddleware,
-  updateUser
-);
-
-// DELETE USER
-router.delete(
-  "/:id",
-  authMiddleware,
-  adminMiddleware,
-  deleteUser
-);
+// ── CRUD (ADMIN) ──────────────────────────────────────────
+router.post("/", createUser);
+router.put("/:id", authMiddleware, adminMiddleware, updateUser);
+router.delete("/:id", authMiddleware, adminMiddleware, deleteUser);
 
 module.exports = router;
