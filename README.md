@@ -1,15 +1,37 @@
-# Backend Sortirin — Panduan Setup & Endpoint
+# 🗑️ Backend Sortirin
 
-## 📦 Install Dependency Baru
-
-```bash
-npm install axios form-data
-```
+Backend REST API untuk aplikasi **Sortirin** — platform bank sampah digital dengan klasifikasi sampah berbasis AI.
 
 ---
 
-## ⚙️ Environment Variables (.env)
+## 🛠️ Tech Stack
 
+- **Runtime**: Node.js
+- **Framework**: Express.js
+- **Database**: PostgreSQL
+- **ORM**: node-postgres (pg)
+- **Auth**: JWT (jsonwebtoken)
+- **Upload**: Multer
+- **AI Integration**: Axios → Railway (FastAPI)
+- **Password Hashing**: bcrypt
+
+---
+
+## 🚀 Cara Menjalankan
+
+### 1. Clone repository
+```bash
+git clone https://github.com/username/backend-sortirin.git
+cd backend-sortirin
+```
+
+### 2. Install dependency
+```bash
+npm install
+```
+
+### 3. Setup environment variables
+Buat file `.env` di root project:
 ```env
 DB_USER=postgres
 DB_HOST=localhost
@@ -17,40 +39,37 @@ DB_NAME=sortirin_db
 DB_PASSWORD=your_password
 DB_PORT=5432
 
-JWT_SECRET=your_jwt_secret_key
+JWT_SECRET=your_random_secret_key
 
-# URL API AI dari tim AI (wajib diisi setelah deploy)
-AI_API_URL=https://your-ai-api.onrender.com
+AI_API_URL=https://klasifikasi-sampah-api-production.up.railway.app
 
 NODE_ENV=development
 PORT=5000
 ```
 
----
+> Generate JWT_SECRET yang aman:
+> ```bash
+> node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+> ```
 
-## 🗄️ Update Database
+### 4. Setup database
+Buat database `sortirin_db` di PostgreSQL, lalu jalankan file migration:
+```bash
+# Di pgAdmin: jalankan file migration.sql
+# Atau via psql:
+psql -U postgres -d sortirin_db -f migration.sql
+```
 
-Jalankan file `update_database.sql` di pgAdmin untuk menambahkan kategori **Kardus** dan **Residu**, serta menghapus **Organik**.
+### 5. Jalankan server
+```bash
+# Development
+npm run dev
 
----
+# Production
+npm start
+```
 
-## 📁 File yang Diubah / Ditambah
-
-| File | Status | Keterangan |
-|---|---|---|
-| `src/controllers/klasifikasiController.js` | ✅ BARU | Inti fitur scan sampah AI |
-| `src/routes/klasifikasiRoutes.js` | ✅ BARU | Routes untuk scan |
-| `src/controllers/kategoriController.js` | ✅ BARU | GET semua kategori sampah |
-| `src/routes/kategoriRoutes.js` | ✅ BARU | Routes untuk kategori |
-| `src/controllers/riwayatPoinController.js` | ✅ BARU | GET riwayat poin user |
-| `src/routes/riwayatPoinRoutes.js` | ✅ BARU | Routes untuk riwayat poin |
-| `src/middleware/errorHandler.js` | ✅ BARU | Global error handler + 404 |
-| `src/middleware/uploadMiddleware.js` | 🔄 UPDATE | Support folder klasifikasi & profiles |
-| `src/controllers/transaksiController.js` | 🔄 UPDATE | Tambah insert riwayat_poin |
-| `src/controllers/rewardController.js` | 🔄 UPDATE | Tambah insert riwayat_poin |
-| `src/controllers/userController.js` | 🔄 UPDATE | Tambah upload foto profil |
-| `src/routes/userRoutes.js` | 🔄 UPDATE | Tambah upload.single di /profile |
-| `src/app.js` | 🔄 UPDATE | Tambah route baru + error handler |
+Server berjalan di `http://localhost:5000`
 
 ---
 
@@ -63,7 +82,7 @@ POST /api/klasifikasi/scan
        ↓
 Backend simpan gambar ke /uploads/klasifikasi/
        ↓
-Backend forward gambar ke AI API
+Backend forward gambar ke AI API (Railway)
        ↓
 AI balas: { kategori: "Plastik", confidence: "95.23%" }
        ↓
@@ -171,7 +190,8 @@ Response:
     "poin_per_kg": 100,
     "prediction_label": "Plastik",
     "ai_confidence": "95.23%",
-    "image_url": "/uploads/klasifikasi/xxx.jpg"
+    "image_url": "/uploads/klasifikasi/xxx.jpg",
+    "instruksi": "Pastikan foto hanya berisi satu jenis sampah untuk hasil klasifikasi yang akurat"
   }
 }
 ```
@@ -207,13 +227,17 @@ Response:
 
 ---
 
-## ⚠️ Catatan untuk Tim
+## 🗃️ Struktur Database
 
-### Untuk Tim AI
-- Deploy API ke **Render** (gratis): https://render.com
-- Setelah deploy, kasih URL ke backend developer untuk diisi di `AI_API_URL`
-- Endpoint yang dipakai: `POST /predict` dengan body `multipart/form-data`, field `file`
-- Response yang diharapkan: `{ "kategori": "Plastik", "confidence": "95.23%" }`
+| Tabel | Keterangan |
+|---|---|
+| `users` | Data user & total poin |
+| `kategori_sampah` | Kategori sampah & poin per kg |
+| `klasifikasi` | Hasil scan AI per user |
+| `transaksi_sampah` | Riwayat transaksi sampah |
+| `reward` | Daftar reward yang tersedia |
+| `penukaran_reward` | Riwayat penukaran reward |
+| `riwayat_poin` | Riwayat poin masuk & keluar |
 
 ### Kategori Sampah (sesuai label model AI)
 | Kategori | Poin/kg |
@@ -225,4 +249,13 @@ Response:
 | Kardus | 40 |
 | Residu | 5 |
 
-> **Catatan:** Kategori **Organik** dihapus dari database karena tidak dikenali model AI.
+---
+
+## 🔗 URL Terkait
+
+| Layanan | URL |
+|---|---|
+| AI API | https://klasifikasi-sampah-api-production.up.railway.app |
+| AI Docs | https://klasifikasi-sampah-api-production.up.railway.app/docs |
+| Dashboard DS | https://dashboardpengolahansampah-fvwzbqyqs7zgmdcwvevjda.streamlit.app |
+| FE vercel | https://sortirin.app/ |
