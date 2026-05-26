@@ -6,6 +6,7 @@ const getAllRewards = async (req, res, next) => {
     const result = await db.query(
       `SELECT id, reward_name, description, image_url, point_cost, stock, created_at
        FROM reward
+       WHERE is_active = true
        ORDER BY point_cost ASC`
     );
 
@@ -31,9 +32,9 @@ const tukarReward = async (req, res, next) => {
   }
 
   try {
-    // Cek reward ada dan stock cukup
+    // Cek reward ada, aktif, dan stock cukup
     const rewardResult = await db.query(
-      "SELECT * FROM reward WHERE id = $1",
+      "SELECT * FROM reward WHERE id = $1 AND is_active = true",
       [reward_id]
     );
 
@@ -212,8 +213,8 @@ const createReward = async (req, res, next) => {
       : null;
 
     const result = await db.query(
-      `INSERT INTO reward (reward_name, description, image_url, point_cost, stock)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO reward (reward_name, description, image_url, point_cost, stock, is_active)
+       VALUES ($1, $2, $3, $4, $5, true)
        RETURNING *`,
       [reward_name, description, image_url, point_cost, stock]
     );
@@ -253,7 +254,6 @@ const updateReward = async (req, res, next) => {
       });
     }
 
-    // Gunakan gambar lama jika tidak ada upload baru
     const image_url = req.file
       ? `/uploads/rewards/${req.file.filename}`
       : rewardCheck.rows[0].image_url;
@@ -277,6 +277,8 @@ const updateReward = async (req, res, next) => {
 };
 
 // DELETE /api/rewards/:id  (ADMIN)
+// Soft delete - reward tidak benar-benar dihapus
+// supaya riwayat penukaran user tetap aman
 const deleteReward = async (req, res, next) => {
   try {
     if (req.user.role !== "admin") {
@@ -289,7 +291,7 @@ const deleteReward = async (req, res, next) => {
     const { id } = req.params;
 
     const result = await db.query(
-      "DELETE FROM reward WHERE id = $1 RETURNING id",
+      "UPDATE reward SET is_active = false WHERE id = $1 RETURNING id",
       [id]
     );
 
