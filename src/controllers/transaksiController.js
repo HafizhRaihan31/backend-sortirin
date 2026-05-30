@@ -20,6 +20,13 @@ exports.tambahTransaksi = async (req, res, next) => {
     });
   }
 
+  if (berat > 100) {
+    return res.status(400).json({
+      success: false,
+      message: "Berat maksimal 100 kg per transaksi",
+    });
+  }
+
   try {
     // Cek kategori
     const kategori = await db.query(

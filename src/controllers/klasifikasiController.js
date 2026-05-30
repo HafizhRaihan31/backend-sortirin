@@ -5,13 +5,14 @@ const fs = require("fs");
 const path = require("path");
 
 // Mapping label AI ke nama kategori di database
+// Update ini setelah diskusi sama tim DS/AI
 const LABEL_TO_KATEGORI = {
   Kaca: "Kaca",
-  Kardus: "Kardus", 
+  Kardus: "Kardus",   // pastikan ada di DB
   Kertas: "Kertas",
   Logam: "Logam",
   Plastik: "Plastik",
-  Residu: "Residu", 
+  Residu: "Residu",   // pastikan ada di DB
 };
 
 // POST /api/klasifikasi/scan
@@ -31,7 +32,7 @@ const scanSampah = async (req, res, next) => {
 
   try {
     // ── 1. KIRIM GAMBAR KE AI ──────────────────────────────
-    const AI_URL = process.env.AI_API_URL; 
+    const AI_URL = process.env.AI_API_URL; // contoh: https://your-ai.onrender.com
 
     if (!AI_URL) {
       throw new Error("AI_API_URL belum dikonfigurasi di environment");
@@ -67,7 +68,7 @@ const scanSampah = async (req, res, next) => {
     // ── 3. AMBIL DATA KATEGORI DARI DB ────────────────────
     const kategoriResult = await db.query(
       "SELECT id, category_name, poin_per_kg FROM kategori_sampah WHERE category_name = $1",
-      [kategoriName],
+      [kategoriName]
     );
 
     if (kategoriResult.rows.length === 0) {
@@ -80,7 +81,7 @@ const scanSampah = async (req, res, next) => {
 
     const kategori = kategoriResult.rows[0];
 
-    
+    // Parse confidence: "95.23%" → 95.23
     const confidenceValue = parseFloat(aiConfidence.replace("%", ""));
 
     // ── 4. SIMPAN HASIL KLASIFIKASI ───────────────────────
@@ -89,7 +90,7 @@ const scanSampah = async (req, res, next) => {
         (user_id, category_id, image_url, prediction_label, ai_confidence)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [user_id, kategori.id, imageUrl, predictionLabel, confidenceValue],
+      [user_id, kategori.id, imageUrl, predictionLabel, confidenceValue]
     );
 
     const klasifikasi = klasifikasiResult.rows[0];
@@ -106,8 +107,6 @@ const scanSampah = async (req, res, next) => {
         prediction_label: predictionLabel,
         ai_confidence: aiConfidence,
         image_url: imageUrl,
-        instruksi:
-          "Pastikan foto hanya berisi satu jenis sampah untuk hasil klasifikasi yang akurat", // ← TAMBAH INI
         catatan:
           "Konfirmasi berat sampah untuk mendapatkan poin. Gunakan endpoint POST /api/transaksi/confirm",
       },
@@ -139,6 +138,7 @@ const scanSampah = async (req, res, next) => {
 };
 
 // POST /api/klasifikasi/confirm
+// Setelah user scan, user input berat → dapat poin
 const konfirmasiSampah = async (req, res, next) => {
   const user_id = req.user.id;
   const { klasifikasi_id, berat } = req.body;
@@ -157,6 +157,13 @@ const konfirmasiSampah = async (req, res, next) => {
     });
   }
 
+  if (berat > 100) {
+    return res.status(400).json({
+      success: false,
+      message: "Berat maksimal 100 kg per transaksi",
+    });
+  }
+
   try {
     // ── 1. CEK KLASIFIKASI MILIK USER INI ─────────────────
     const klasifikasiResult = await db.query(
@@ -164,7 +171,7 @@ const konfirmasiSampah = async (req, res, next) => {
        FROM klasifikasi k
        JOIN kategori_sampah ks ON k.category_id = ks.id
        WHERE k.id = $1 AND k.user_id = $2`,
-      [klasifikasi_id, user_id],
+      [klasifikasi_id, user_id]
     );
 
     if (klasifikasiResult.rows.length === 0) {
@@ -186,13 +193,13 @@ const konfirmasiSampah = async (req, res, next) => {
         (user_id, kategori_id, berat, poin_didapat, status)
        VALUES ($1, $2, $3, $4, 'approved')
        RETURNING *`,
-      [user_id, klasifikasi.category_id, berat, poinDidapat],
+      [user_id, klasifikasi.category_id, berat, poinDidapat]
     );
 
     // Update total poin user
     await db.query(
       "UPDATE users SET total_points = total_points + $1 WHERE id = $2",
-      [poinDidapat, user_id],
+      [poinDidapat, user_id]
     );
 
     // Simpan ke riwayat_poin
@@ -203,7 +210,7 @@ const konfirmasiSampah = async (req, res, next) => {
         user_id,
         poinDidapat,
         `Scan sampah: ${klasifikasi.category_name} ${berat} kg`,
-      ],
+      ]
     );
 
     await db.query("COMMIT");
@@ -244,7 +251,7 @@ const getRiwayatKlasifikasi = async (req, res, next) => {
        JOIN kategori_sampah ks ON k.category_id = ks.id
        WHERE k.user_id = $1
        ORDER BY k.created_at DESC`,
-      [user_id],
+      [user_id]
     );
 
     return res.status(200).json({
@@ -280,7 +287,7 @@ const getAllKlasifikasi = async (req, res, next) => {
        FROM klasifikasi k
        JOIN users u ON k.user_id = u.id
        JOIN kategori_sampah ks ON k.category_id = ks.id
-       ORDER BY k.created_at DESC`,
+       ORDER BY k.created_at DESC`
     );
 
     return res.status(200).json({
