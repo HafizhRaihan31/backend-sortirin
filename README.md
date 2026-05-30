@@ -258,4 +258,4 @@ Response:
 | AI API | https://klasifikasi-sampah-api-production.up.railway.app |
 | AI Docs | https://klasifikasi-sampah-api-production.up.railway.app/docs |
 | Dashboard DS | https://dashboardpengolahansampah-fvwzbqyqs7zgmdcwvevjda.streamlit.app |
-| FE vercel | https://sortirin.app/ |
+| FE vercel | https://sortirin.vercel.app/ |
