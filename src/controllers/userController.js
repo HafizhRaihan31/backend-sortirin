@@ -126,23 +126,36 @@ const deleteUser = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    const result = await pool.query(
-      "DELETE FROM users WHERE id = $1 RETURNING id",
+    // Cek user ada
+    const userCheck = await pool.query(
+      "SELECT id FROM users WHERE id = $1",
       [id]
     );
 
-    if (result.rows.length === 0) {
+    if (userCheck.rows.length === 0) {
       return res.status(404).json({
         success: false,
         message: "User tidak ditemukan",
       });
     }
 
+    // Hapus semua data terkait dulu (atomic)
+    await pool.query("BEGIN");
+
+    await pool.query("DELETE FROM riwayat_poin WHERE user_id = $1", [id]);
+    await pool.query("DELETE FROM penukaran_reward WHERE user_id = $1", [id]);
+    await pool.query("DELETE FROM klasifikasi WHERE user_id = $1", [id]);
+    await pool.query("DELETE FROM transaksi_sampah WHERE user_id = $1", [id]);
+    await pool.query("DELETE FROM users WHERE id = $1", [id]);
+
+    await pool.query("COMMIT");
+
     res.status(200).json({
       success: true,
       message: "User berhasil dihapus",
     });
   } catch (error) {
+    await pool.query("ROLLBACK");
     next(error);
   }
 };
@@ -245,12 +258,10 @@ const updateProfile = async (req, res, next) => {
 
     const user = userResult.rows[0];
 
-    // ── Foto profil: pakai yang baru jika ada upload ──────
     const profile_image = req.file
       ? `/uploads/profiles/${req.file.filename}`
       : user.profile_image;
 
-    // ── Ganti password jika diisi ─────────────────────────
     let hashedPassword = user.password_hash;
 
     if (current_password || new_password || confirm_password) {
