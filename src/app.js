@@ -15,7 +15,7 @@ const { notFound, errorHandler } = require("./middleware/errorHandler");
 const { generalLimiter, authLimiter, scanLimiter } = require("./middleware/rateLimiter");
 
 const app = express();
-
+app.set("trust proxy", 1);
 // ── MIDDLEWARE ────────────────────────────────────────────
 app.use(cors({
   origin: [
