@@ -1,5 +1,16 @@
-node_modules
-# Keep environment variables out of version control
+node_modules/
 .env
 
 /generated/prisma
+
+# Upload files
+uploads/
+
+# Database backup
+*.sql
+
+# Installer packages
+*.deb
+
+# Logs
+*.log
