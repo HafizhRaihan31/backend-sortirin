@@ -4,15 +4,58 @@ const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
 
+// ==================== AI FAILOVER ====================
+const callAI = async (imagePath, originalName, mimeType) => {
+  if (!process.env.AI_API_URL_1 && !process.env.AI_API_URL_2) {
+    throw new Error(
+      "AI_API_URL_1 atau AI_API_URL_2 belum dikonfigurasi di environment",
+    );
+  }
+
+  const AI_URLS = [process.env.AI_API_URL_1, process.env.AI_API_URL_2];
+
+  let lastError;
+
+  for (const url of AI_URLS) {
+    if (!url) continue;
+
+    try {
+      console.log(`Mencoba AI: ${url}`);
+
+      // FormData dibuat ulang setiap percobaan
+      const formData = new FormData();
+      formData.append("file", fs.createReadStream(imagePath), {
+        filename: originalName,
+        contentType: mimeType,
+      });
+
+      const response = await axios.post(`${url}/predict`, formData, {
+        headers: {
+          ...formData.getHeaders(),
+        },
+        timeout: 30000,
+      });
+
+      console.log(`Berhasil menggunakan AI: ${url}`);
+
+      return response.data;
+    } catch (err) {
+      console.error(`AI gagal: ${url}`);
+      lastError = err;
+    }
+  }
+
+  throw lastError;
+};
+
 // Mapping label AI ke nama kategori di database
-// Update ini setelah diskusi sama tim DS/AI
 const LABEL_TO_KATEGORI = {
   Kaca: "Kaca",
-  Kardus: "Kardus",   // pastikan ada di DB
+  Kardus: "Kardus",
   Kertas: "Kertas",
   Logam: "Logam",
   Plastik: "Plastik",
-  Residu: "Residu",   // pastikan ada di DB
+  Residu: "Residu",
 };
 
 // POST /api/klasifikasi/scan
@@ -31,28 +74,14 @@ const scanSampah = async (req, res, next) => {
   const imageUrl = `/uploads/klasifikasi/${req.file.filename}`;
 
   try {
-    // ── 1. KIRIM GAMBAR KE AI ──────────────────────────────
-    const AI_URL = process.env.AI_API_URL; // contoh: https://your-ai.onrender.com
+    // ── 1. KIRIM GAMBAR KE AI (FAILOVER) ───────────────────
+    const aiResult = await callAI(
+      imagePath,
+      req.file.originalname,
+      req.file.mimetype,
+    );
 
-    if (!AI_URL) {
-      throw new Error("AI_API_URL belum dikonfigurasi di environment");
-    }
-
-    const formData = new FormData();
-    formData.append("file", fs.createReadStream(imagePath), {
-      filename: req.file.originalname,
-      contentType: req.file.mimetype,
-    });
-
-    const aiResponse = await axios.post(`${AI_URL}/predict`, formData, {
-      headers: {
-        ...formData.getHeaders(),
-      },
-      timeout: 30000, // 30 detik timeout
-    });
-
-    const { kategori: predictionLabel, confidence: aiConfidence } =
-      aiResponse.data;
+    const { kategori: predictionLabel, confidence: aiConfidence } = aiResult;
 
     // ── 2. MAPPING LABEL AI → KATEGORI DB ─────────────────
     const kategoriName = LABEL_TO_KATEGORI[predictionLabel];
@@ -68,7 +97,7 @@ const scanSampah = async (req, res, next) => {
     // ── 3. AMBIL DATA KATEGORI DARI DB ────────────────────
     const kategoriResult = await db.query(
       "SELECT id, category_name, poin_per_kg FROM kategori_sampah WHERE category_name = $1",
-      [kategoriName]
+      [kategoriName],
     );
 
     if (kategoriResult.rows.length === 0) {
@@ -90,7 +119,7 @@ const scanSampah = async (req, res, next) => {
         (user_id, category_id, image_url, prediction_label, ai_confidence)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [user_id, kategori.id, imageUrl, predictionLabel, confidenceValue]
+      [user_id, kategori.id, imageUrl, predictionLabel, confidenceValue],
     );
 
     const klasifikasi = klasifikasiResult.rows[0];
@@ -118,7 +147,11 @@ const scanSampah = async (req, res, next) => {
     }
 
     // Error dari axios (AI tidak bisa dihubungi)
-    if (error.code === "ECONNREFUSED" || error.code === "ENOTFOUND") {
+    if (
+      error.code === "ECONNREFUSED" ||
+      error.code === "ENOTFOUND" ||
+      error.code === "ECONNABORTED"
+    ) {
       return res.status(503).json({
         success: false,
         message: "Layanan AI sedang tidak tersedia. Coba lagi nanti.",
@@ -171,7 +204,7 @@ const konfirmasiSampah = async (req, res, next) => {
        FROM klasifikasi k
        JOIN kategori_sampah ks ON k.category_id = ks.id
        WHERE k.id = $1 AND k.user_id = $2`,
-      [klasifikasi_id, user_id]
+      [klasifikasi_id, user_id],
     );
 
     if (klasifikasiResult.rows.length === 0) {
@@ -193,13 +226,13 @@ const konfirmasiSampah = async (req, res, next) => {
         (user_id, kategori_id, berat, poin_didapat, status)
        VALUES ($1, $2, $3, $4, 'approved')
        RETURNING *`,
-      [user_id, klasifikasi.category_id, berat, poinDidapat]
+      [user_id, klasifikasi.category_id, berat, poinDidapat],
     );
 
     // Update total poin user
     await db.query(
       "UPDATE users SET total_points = total_points + $1 WHERE id = $2",
-      [poinDidapat, user_id]
+      [poinDidapat, user_id],
     );
 
     // Simpan ke riwayat_poin
@@ -210,7 +243,7 @@ const konfirmasiSampah = async (req, res, next) => {
         user_id,
         poinDidapat,
         `Scan sampah: ${klasifikasi.category_name} ${berat} kg`,
-      ]
+      ],
     );
 
     await db.query("COMMIT");
@@ -251,7 +284,7 @@ const getRiwayatKlasifikasi = async (req, res, next) => {
        JOIN kategori_sampah ks ON k.category_id = ks.id
        WHERE k.user_id = $1
        ORDER BY k.created_at DESC`,
-      [user_id]
+      [user_id],
     );
 
     return res.status(200).json({
@@ -287,7 +320,7 @@ const getAllKlasifikasi = async (req, res, next) => {
        FROM klasifikasi k
        JOIN users u ON k.user_id = u.id
        JOIN kategori_sampah ks ON k.category_id = ks.id
-       ORDER BY k.created_at DESC`
+       ORDER BY k.created_at DESC`,
     );
 
     return res.status(200).json({

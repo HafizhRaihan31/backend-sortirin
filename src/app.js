@@ -22,7 +22,7 @@ app.use(cors({
     "https://sortirin.vercel.app",
     "http://sortirin.oxidilily.online",
     "http://localhost:5173",
-    "https://sortirsampah.vercel.app/",
+    "https://sortirsampah.vercel.app",
   ],
   credentials: true,
 }));
